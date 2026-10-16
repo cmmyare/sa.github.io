@@ -187,7 +187,7 @@
     render(`
       <div class="big-emoji">🥺</div>
       <h2>Do you miss him?</h2>
-      <p class="sub">Be honest, ${esc(answers.name)}… 🤎</p>
+      <p class="sub">Careful… one of these buttons is a little shy 🙈</p>
       <div class="btns">
         <button class="btn" id="yes">Yes, so much 🥹</button>
         <button class="btn ghost runaway" id="no">No 🙄</button>
