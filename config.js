@@ -1,7 +1,9 @@
-// Where the backend API lives.
-// Local testing  -> http://localhost:3000
-// After deploying the server on Vercel, put its URL below.
-window.MEET_API_URL =
+// Where the backend API lives. The page tries each URL in order until one works,
+// so if one host is blocked on her network the next one is used.
+window.MEET_API_URLS =
   location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-    ? 'http://localhost:3000'
-    : 'https://meet-sab-api.vercel.app'; // <-- your Vercel backend URL
+    ? ['http://localhost:3000']
+    : [
+        'https://meet-sab-api.netlify.app', // main backend (Netlify)
+        'https://meet-sab-api.vercel.app', // backup backend (Vercel)
+      ];

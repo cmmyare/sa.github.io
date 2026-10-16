@@ -1,5 +1,5 @@
 (() => {
-  const API_URL = window.MEET_API_URL;
+  const API_URLS = window.MEET_API_URLS;
   const MAX_DATE = '2026-10-23'; // Friday next week — last day she can pick
   const ANNIVERSARY = '28/10/2026';
 
@@ -419,20 +419,39 @@
     setTimeout(save, 1800);
   }
 
+  function fetchWithTimeout(url, options = {}, ms = 20000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+  }
+
+  // Try each backend in turn; a blocked or broken one falls through to the next
+  async function postAnswer() {
+    let lastError = new Error('No server available');
+    for (const base of API_URLS) {
+      try {
+        const res = await fetchWithTimeout(`${base}/api/answer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(answers),
+        });
+        if (res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        lastError = new Error(data.error || `Server error ${res.status}`);
+        if (res.status === 400) throw lastError; // bad data: another server won't help
+      } catch (err) {
+        if (err === lastError) throw err;
+        lastError = err.name === 'AbortError' ? new Error('Server took too long') : err;
+      }
+    }
+    throw lastError;
+  }
+
   async function save() {
     const status = $('#status');
     try {
-      const res = await fetch(`${API_URL}/api/answer`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(answers),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        stepDone(answers);
-        return;
-      }
-      throw new Error(data.error || 'Something went wrong');
+      await postAnswer();
+      stepDone(answers);
     } catch (err) {
       status.innerHTML = `Oops, the love letter got lost 🥺<br/><small>${esc(err.message)}</small>`;
       const btns = document.createElement('div');
@@ -462,6 +481,6 @@
 
   // ---------- start ----------
   // Wake the backend early so saving at the end is fast
-  fetch(`${API_URL}/api/health`).catch(() => {});
+  API_URLS.forEach((base) => fetch(`${base}/api/health`).catch(() => {}));
   stepWelcome();
 })();

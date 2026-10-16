@@ -2,3 +2,5 @@ node_modules/
 .env
 server/.env
 server/db-config.js
+netlify-api/node_modules/
+netlify-api/.netlify/
