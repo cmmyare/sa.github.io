@@ -22,7 +22,6 @@ if (!DEV_DB_URL) {
 
 const MIN_DATE = '2026-10-16';
 const MAX_DATE = '2026-10-23'; // Friday next week
-const ANSWER_ID = 'saabira-answer'; // fixed _id => only one entry can ever be stored
 
 const app = express();
 app.use(express.json({ limit: '10kb' }));
@@ -47,22 +46,9 @@ const str = (v, max = 120) => (typeof v === 'string' ? v.trim().slice(0, max) : 
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-app.get('/api/status', async (_req, res) => {
-  try {
-    const doc = await (await getCollection()).findOne({ _id: ANSWER_ID });
-    if (!doc) return res.json({ submitted: false });
-    const { name, breakfastDate, breakfastTime, place } = doc;
-    res.json({ submitted: true, answer: { name, breakfastDate, breakfastTime, place } });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
 app.post('/api/answer', async (req, res) => {
   const b = req.body || {};
   const answer = {
-    _id: ANSWER_ID,
     name: str(b.name, 40),
     missesHim: b.missesHim === true,
     loveLevel: str(b.loveLevel, 20),
@@ -89,7 +75,6 @@ app.post('/api/answer', async (req, res) => {
     console.log('💌 New answer saved:', answer.breakfastDate, answer.breakfastTime, answer.place);
     res.status(201).json({ ok: true });
   } catch (err) {
-    if (err.code === 11000) return res.status(409).json({ error: 'Answer already submitted' });
     console.error(err);
     res.status(500).json({ error: 'Database error' });
   }

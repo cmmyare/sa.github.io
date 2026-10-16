@@ -2,7 +2,6 @@
   const API_URL = window.MEET_API_URL;
   const MAX_DATE = '2026-10-23'; // Friday next week — last day she can pick
   const ANNIVERSARY = '28/10/2026';
-  const DONE_KEY = 'meetSab.submitted';
 
   const card = document.getElementById('card');
   const overlay = document.getElementById('overlay');
@@ -429,8 +428,7 @@
         body: JSON.stringify(answers),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.ok || res.status === 409) {
-        try { localStorage.setItem(DONE_KEY, JSON.stringify(answers)); } catch {}
+      if (res.ok) {
         stepDone(answers);
         return;
       }
@@ -463,19 +461,7 @@
   }
 
   // ---------- start ----------
-  async function start() {
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(DONE_KEY)); } catch {}
-    if (saved) return stepDone(saved);
-    try {
-      const res = await fetch(`${API_URL}/api/status`);
-      const data = await res.json();
-      if (data.submitted) return stepDone(data.answer || {});
-    } catch { /* server asleep or offline — still let her play */ }
-    stepWelcome();
-  }
-
-  setProgress(0);
-  render('<div class="spinner">🤎</div><p class="sub">Loading something special…</p>');
-  start();
+  // Wake the backend early so saving at the end is fast
+  fetch(`${API_URL}/api/health`).catch(() => {});
+  stepWelcome();
 })();
