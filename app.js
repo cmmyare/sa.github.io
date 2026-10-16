@@ -181,7 +181,7 @@
       }
     };
     $('#next').onclick = submit;
-    input.onkeydown = (e) => e.key === 'Enter' && submit();
+    input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
   }
 
   function stepMiss() {
@@ -380,7 +380,7 @@
       reaction('🗺️', 'Perfect choice!', 'He’ll be there early, with the biggest smile 😁', stepAnniversary);
     };
     $('#next').onclick = submit;
-    input.onkeydown = (e) => e.key === 'Enter' && submit();
+    input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
   }
 
   function stepAnniversary() {
