@@ -4,8 +4,12 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
 
+// Optional private config file (gitignored), used when env vars can't be set on the host
+let fileConfig = {};
+try { fileConfig = require('./db-config.js'); } catch { /* not present */ }
+
 const {
-  DEV_DB_URL,
+  DEV_DB_URL = fileConfig.DEV_DB_URL,
   DB_NAME = 'meet_sab',
   COLLECTION = 'trick',
   PORT = 3000,
