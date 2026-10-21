@@ -39,6 +39,27 @@ export default async (req) => {
 
   const path = new URL(req.url).pathname;
   if (path === '/api/health') return json(200, { ok: true });
+
+  // Meeting day: she taps "I'm here" when she arrives
+  if (path === '/api/arrived') {
+    try {
+      const col = await getCollection();
+      if (req.method === 'GET') {
+        const doc = await col.findOne({ type: 'arrival' }, { sort: { arrivedAt: -1 } });
+        return json(200, { arrived: !!doc, arrivedAt: doc ? doc.arrivedAt : null });
+      }
+      if (req.method === 'POST') {
+        const b = await req.json().catch(() => ({}));
+        const arrivedAt = new Date();
+        await col.insertOne({ type: 'arrival', name: str(b.name, 40) || 'Sabira', arrivedAt, userAgent: str(req.headers.get('user-agent') || '', 300) });
+        return json(201, { ok: true, arrivedAt });
+      }
+    } catch (err) {
+      console.error(err);
+      return json(500, { error: 'Database error' });
+    }
+  }
+
   if (path !== '/api/answer' || req.method !== 'POST') return json(404, { error: 'Not found' });
 
   const b = await req.json().catch(() => ({}));
@@ -73,4 +94,4 @@ export default async (req) => {
   }
 };
 
-export const config = { path: ['/api/health', '/api/answer'] };
+export const config = { path: ['/api/health', '/api/answer', '/api/arrived'] };

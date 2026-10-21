@@ -207,3 +207,119 @@ input[type=range]::-moz-range-thumb { width: 34px; height: 34px; border-radius: 
   h2 { font-size: 1.8rem; }
   .big-emoji { font-size: 3.6rem; }
 }
+
+/* =========================================================
+   Meeting day: stages, clock, anniversary & gifts
+   ========================================================= */
+body { transition: background .8s; }
+.clock-label { margin: 18px 0 4px; font-weight: 700; color: var(--brown); letter-spacing: .5px; }
+
+.clock { display: flex; justify-content: center; align-items: flex-start; gap: 6px; margin: 8px 0 6px; }
+.unit {
+  min-width: 78px; padding: 12px 6px 8px; border-radius: 18px; color: #fff;
+  background: linear-gradient(160deg, var(--caramel), var(--choco));
+  box-shadow: 0 12px 24px -12px rgba(74, 42, 26, .7);
+}
+.unit span { display: block; font-size: 2.5rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.unit small { display: block; margin-top: 4px; font-size: .68rem; letter-spacing: 1.5px; text-transform: uppercase; opacity: .85; }
+.sep { font-size: 2.2rem; font-weight: 700; padding-top: 6px; color: var(--brown); }
+.sign { font-size: 2.6rem; font-weight: 700; padding-top: 4px; color: #b91c1c; }
+
+/* --- extra hour: a little bit annoying 😤 --- */
+body.stage-grace {
+  background: radial-gradient(circle at 20% 10%, rgba(255, 170, 60, .35), transparent 45%),
+              linear-gradient(160deg, #fff4e0 0%, #ffe0b2 55%, #ffc98a 100%);
+  background-attachment: fixed;
+}
+.stage-grace .card { border-color: #f59e0b; animation: pop .55s cubic-bezier(.2, 1.4, .4, 1), nag 2.5s 1s infinite; }
+.stage-grace .unit { background: linear-gradient(160deg, #fbbf24, #ea580c); }
+.stage-grace h1, .stage-grace .clock-label, .stage-grace .sep { color: #c2410c; }
+.stage-grace .big-emoji { animation: shake .5s infinite; }
+@keyframes nag { 0%, 88%, 100% { transform: none; } 90% { transform: rotate(-1.5deg); } 94% { transform: rotate(1.5deg); } 97% { transform: rotate(-1deg); } }
+
+/* --- late: red, minus time 😡 --- */
+body.stage-late {
+  background: radial-gradient(circle at 80% 10%, rgba(239, 68, 68, .3), transparent 45%),
+              linear-gradient(160deg, #fff1f1 0%, #ffd2d2 55%, #ffaaaa 100%);
+  background-attachment: fixed;
+}
+.stage-late .card { border-color: #ef4444; box-shadow: 0 20px 50px -18px rgba(185, 28, 28, .6); }
+.stage-late .unit { background: linear-gradient(160deg, #ef4444, #991b1b); animation: alarm 1s infinite; }
+.stage-late h1, .stage-late .clock-label, .stage-late .sep { color: #b91c1c; }
+.stage-late .btn { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+.stage-late .big-emoji { animation: shake .6s infinite; }
+@keyframes alarm { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, .6); } 50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); } }
+
+/* --- anniversary: pink & love 💗 --- */
+body.stage-anniversary, body.stage-gifts {
+  background: radial-gradient(circle at 15% 10%, rgba(244, 114, 182, .35), transparent 45%),
+              radial-gradient(circle at 85% 90%, rgba(219, 39, 119, .25), transparent 45%),
+              linear-gradient(160deg, #fff0f6 0%, #ffd6e8 55%, #ffb8d6 100%);
+  background-attachment: fixed;
+}
+.stage-anniversary .card, .stage-gifts .card { border-color: rgba(236, 72, 153, .45); box-shadow: 0 20px 50px -18px rgba(219, 39, 119, .5); }
+.stage-anniversary h1, .stage-anniversary h2, .stage-anniversary .clock-label, .stage-anniversary .sep,
+.stage-gifts h2 { color: #db2777; }
+.stage-anniversary .sub, .stage-gifts .sub { color: #9d174d; }
+.stage-anniversary .unit { background: linear-gradient(160deg, #f472b6, #be185d); box-shadow: 0 12px 24px -12px rgba(190, 24, 93, .8); }
+.stage-anniversary .logo, .stage-gifts .logo { color: #db2777; }
+.stage-anniversary .logo span, .stage-gifts .logo span { background: linear-gradient(90deg, #db2777, #f472b6); -webkit-background-clip: text; background-clip: text; }
+.stage-anniversary .card::before, .stage-gifts .card::before { content: '💗'; }
+.stage-anniversary .card::after, .stage-gifts .card::after { content: '🌸'; }
+
+.anniv-badge {
+  display: inline-block; max-width: 100%; margin: 6px 0 2px; padding: 8px 18px;
+  font-family: 'Dancing Script', cursive; font-size: 1.75rem; font-weight: 700; line-height: 1.2; color: #fff;
+  background: linear-gradient(135deg, #f472b6, #db2777); border-radius: 18px;
+  box-shadow: 0 14px 30px -14px rgba(219, 39, 119, .9); animation: glow 1.6s infinite;
+}
+@keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(244, 114, 182, .6); } 50% { box-shadow: 0 0 0 10px rgba(244, 114, 182, 0); } }
+.anniv-dates { margin: 8px 0 0; font-weight: 700; color: #be185d; letter-spacing: 1px; }
+.together { margin: 14px auto 0; padding: 10px 18px; display: inline-block; border-radius: 999px; background: #fff; border: 2px dashed #f472b6; font-weight: 600; color: #9d174d; }
+.together b { font-size: 1.4rem; color: #db2777; }
+.note {
+  min-height: 3.2em; margin: 18px auto 0; max-width: 380px;
+  font-family: 'Dancing Script', cursive; font-size: 1.55rem; color: #db2777;
+  opacity: 0; transform: translateY(8px); transition: opacity .35s, transform .35s;
+}
+.note.show { opacity: 1; transform: none; }
+.lock { font-size: 3rem; margin-top: 10px; display: inline-block; position: relative; animation: wiggle 2s infinite; }
+.lock span { position: absolute; right: -12px; bottom: -4px; font-size: 1.5rem; }
+
+/* --- gifts: pink + gold 🎁 --- */
+.shimmer {
+  background: linear-gradient(90deg, #db2777, #d4a24c, #f472b6, #d4a24c, #db2777);
+  background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important;
+  animation: shimmer 4s linear infinite;
+}
+@keyframes shimmer { to { background-position: 300% 0; } }
+.gift-box {
+  display: block; margin: 16px auto 0; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; animation: wiggle 1.4s ease-in-out infinite; transition: transform .8s, opacity .8s;
+}
+.gift-box img { width: min(240px, 70vw); border-radius: 22px; box-shadow: 0 24px 50px -20px rgba(219, 39, 119, .7); display: block; margin: 0 auto; }
+.gift-box .tap { display: inline-block; margin-top: 14px; padding: 12px 24px; border-radius: 999px; color: #fff; font-weight: 700; background: linear-gradient(135deg, #f472b6, #db2777); animation: beat 1s infinite; }
+.gift-box.open { animation: none; transform: scale(1.5) rotate(-8deg); opacity: 0; }
+.reveal { animation: pop .8s cubic-bezier(.2, 1.4, .4, 1); }
+.hero img { width: 100%; border-radius: 24px; display: block; box-shadow: 0 0 0 6px #fff, 0 24px 60px -20px rgba(219, 39, 119, .8); margin-top: 8px; }
+.gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; text-align: left; }
+.gift-item { margin: 0; background: #fff; border-radius: 18px; overflow: hidden; border: 2px solid #fbcfe8; box-shadow: 0 12px 26px -16px rgba(219, 39, 119, .6); }
+.gift-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.gift-item figcaption { padding: 10px 12px 12px; font-size: .85rem; color: #9d174d; line-height: 1.35; }
+.gift-item b { display: block; color: #db2777; font-size: .95rem; }
+
+/* --- preview bar (only with ?preview=) --- */
+.preview-bar {
+  position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 20;
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center;
+  max-width: calc(100vw - 20px); padding: 8px 12px; border-radius: 16px;
+  background: rgba(74, 42, 26, .9); color: #fff; font-size: .8rem; font-weight: 600;
+}
+.preview-bar a { color: #fff; text-decoration: none; padding: 4px 9px; border-radius: 999px; background: rgba(255, 255, 255, .15); }
+.preview-bar a.on { background: #f472b6; }
+
+@media (max-width: 420px) {
+  .unit { min-width: 66px; padding: 10px 4px 7px; }
+  .unit span { font-size: 2.1rem; }
+  .anniv-badge { font-size: 1.45rem; padding: 8px 14px; }
+}

@@ -11,14 +11,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body class="stage-meeting">
   <div id="hearts-bg" aria-hidden="true"></div>
   <div id="rain" aria-hidden="true"></div>
 
   <main class="wrap">
     <header class="top">
       <div class="logo">🤎 <span>For My Love</span> 🤎</div>
-      <div class="progress" id="progress" aria-hidden="true"></div>
     </header>
 
     <section id="card" class="card" aria-live="polite"></section>
@@ -27,6 +26,7 @@
   </main>
 
   <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true"></div>
+  <nav id="preview-bar" class="preview-bar" hidden></nav>
 
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
   <script src="config.js"></script>

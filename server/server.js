@@ -30,6 +30,7 @@ app.use(cors({ origin: ALLOWED_ORIGINS.split(',').map((o) => o.trim()) }));
 // Serve the frontend too, handy for local testing at http://localhost:3000
 const FRONTEND_FILES = { '/': 'index.html', '/index.html': 'index.html', '/style.css': 'style.css', '/app.js': 'app.js', '/config.js': 'config.js' };
 app.get(Object.keys(FRONTEND_FILES), (req, res) => res.sendFile(path.join(__dirname, '..', FRONTEND_FILES[req.path])));
+app.use('/assets', express.static(path.join(__dirname, '..', 'assets')));
 
 // Connect once and reuse (works both locally and on Vercel serverless)
 let collectionPromise;
@@ -45,6 +46,33 @@ function getCollection() {
 const str = (v, max = 120) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+// Meeting day: she taps "I'm here" when she arrives
+app.get('/api/arrived', async (_req, res) => {
+  try {
+    const doc = await (await getCollection()).findOne({ type: 'arrival' }, { sort: { arrivedAt: -1 } });
+    res.json({ arrived: !!doc, arrivedAt: doc ? doc.arrivedAt : null });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/arrived', async (req, res) => {
+  try {
+    const arrivedAt = new Date();
+    await (await getCollection()).insertOne({
+      type: 'arrival',
+      name: str((req.body || {}).name, 40) || 'Sabira',
+      arrivedAt,
+      userAgent: str(req.get('user-agent') || '', 300),
+    });
+    res.status(201).json({ ok: true, arrivedAt });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
 
 app.post('/api/answer', async (req, res) => {
   const b = req.body || {};

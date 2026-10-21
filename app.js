@@ -1,78 +1,87 @@
 (() => {
   const API_URLS = window.MEET_API_URLS;
-  const MAX_DATE = '2026-10-23'; // Friday next week — last day she can pick
-  const ANNIVERSARY = '28/10/2026';
+
+  // ---------- the plan (from Sabira's answer) ----------
+  const NAME = 'Sabira';
+  const PLACE = '☕ A cozy café';
+  const MEETING = new Date(2026, 9, 21, 9, 0, 0); // Wed 21 Oct 2026, 9:00 AM
+  const GRACE_END = new Date(MEETING.getTime() + 60 * 60 * 1000); // +1 extra hour
+  const GIFT_TIME = new Date(2026, 9, 22, 0, 0, 0); // midnight after the date
+  const LOVE_START = new Date(2024, 9, 28); // 28/10/2024
+  const ARRIVED_KEY = 'meetSab.arrivedAt';
 
   const card = document.getElementById('card');
   const overlay = document.getElementById('overlay');
-  const progress = document.getElementById('progress');
 
-  const answers = {};
-  const STEP_ICONS = ['💌', '🥺', '💗', '💞', '😍', '💍', '☕', '📍', '🎉'];
+  // ---------- preview mode (for him only): ?preview=meeting|grace|late|anniversary|gifts or ?at=HH:MM ----------
+  const params = new URLSearchParams(location.search);
+  const PREVIEW_TIMES = { meeting: '07:45', grace: '09:20', late: '10:35', anniversary: '21:30', gifts: '24:00:03' };
+  const preview = params.get('preview');
+  const atParam = params.get('at') || PREVIEW_TIMES[preview];
+  const isPreview = !!atParam;
+  let offset = 0;
+  if (atParam) {
+    const [h, m = 0, s = 0] = atParam.split(':').map(Number);
+    offset = new Date(2026, 9, 21).getTime() + ((h * 60 + m) * 60 + s) * 1000 - Date.now();
+  }
+  const now = () => new Date(Date.now() + offset);
+
+  let arrivedAt = null;
+  if (isPreview) {
+    if (preview === 'anniversary' || preview === 'gifts') arrivedAt = new Date(2026, 9, 21, 9, 12);
+  } else {
+    try { const v = localStorage.getItem(ARRIVED_KEY); if (v) arrivedAt = new Date(v); } catch {}
+  }
 
   // ---------- helpers ----------
   const $ = (sel, root = card) => root.querySelector(sel);
-  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pad = (n) => String(n).padStart(2, '0');
 
-  function todayISO() {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    return d.toISOString().slice(0, 10);
+  function fetchWithTimeout(url, options = {}, ms = 15000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(timer));
   }
 
-  function prettyDate(iso) {
-    const [y, m, d] = iso.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  // Try each backend until one answers
+  async function api(path, options) {
+    for (const base of API_URLS) {
+      try {
+        const res = await fetchWithTimeout(base + path, options);
+        if (res.ok) return await res.json();
+      } catch { /* try next */ }
+    }
+    throw new Error('No server reachable');
   }
 
-  function prettyTime(t) {
-    const [h, m] = t.split(':').map(Number);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${ampm}`;
-  }
-
-  function levenshtein(a, b) {
-    const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
-    for (let j = 1; j <= b.length; j++) dp[0][j] = j;
-    for (let i = 1; i <= a.length; i++)
-      for (let j = 1; j <= b.length; j++)
-        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    return dp[a.length][b.length];
-  }
-
-  // Saabira, SABIRA, sabiraa, Saabirah, sabeera... all count 🤎
-  function isSaabira(value) {
-    const s = value.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '');
-    if (!s) return false;
-    if (/^sa+b+(i+|e+)r+a+h?$/.test(s)) return true;
-    return levenshtein(s, 'saabira') <= 2 || levenshtein(s, 'sabira') <= 1;
-  }
-
-  function shake(el) {
-    el.classList.remove('shake');
-    void el.offsetWidth;
-    el.classList.add('shake');
-  }
-
-  function setProgress(i) {
-    progress.innerHTML = STEP_ICONS.map((e, idx) =>
-      `<span class="dot ${idx < i ? 'done' : idx === i ? 'now' : ''}">${e}</span>`).join('');
-  }
-
-  function render(html, stepIndex) {
-    if (stepIndex !== undefined) setProgress(stepIndex);
+  function render(html) {
     card.style.animation = 'none';
     void card.offsetWidth;
     card.style.animation = '';
     card.innerHTML = html;
   }
 
+  function showOverlay(html) {
+    overlay.innerHTML = `<div class="card">${html}</div>`;
+    overlay.classList.remove('hidden');
+  }
+  function hideOverlay() { overlay.classList.add('hidden'); overlay.innerHTML = ''; }
+
   // ---------- background magic ----------
-  const HEARTS = ['🤎', '💗', '💕', '💖', '🤍', '🌸', '💞', '🍫'];
+  const HEARTS = {
+    meeting: ['🤎', '☕', '🥐', '💗', '🤍', '🍫'],
+    grace: ['⏰', '😤', '☕', '🤎', '⌛'],
+    late: ['💔', '😡', '⏰', '🥺', '☕'],
+    anniversary: ['💗', '💖', '💕', '🌸', '🌷', '💞', '🤍'],
+    gifts: ['🎁', '💐', '👑', '✨', '💖', '🌹', '🎀'],
+  };
+  let stage = null;
+
   function spawnHeart() {
+    const set = HEARTS[stage] || HEARTS.meeting;
     const h = document.createElement('span');
     h.className = 'float-heart';
-    h.textContent = HEARTS[Math.floor(Math.random() * HEARTS.length)];
+    h.textContent = set[Math.floor(Math.random() * set.length)];
     h.style.left = Math.random() * 100 + 'vw';
     h.style.fontSize = 14 + Math.random() * 26 + 'px';
     h.style.animationDuration = 7 + Math.random() * 8 + 's';
@@ -80,7 +89,7 @@
     setTimeout(() => h.remove(), 16000);
   }
   for (let i = 0; i < 10; i++) setTimeout(spawnHeart, i * 400);
-  setInterval(spawnHeart, 900);
+  setInterval(spawnHeart, 800);
 
   function rain(items, count = 60, duration = 4000) {
     const box = document.getElementById('rain');
@@ -98,389 +107,273 @@
     }
   }
 
-  function celebrate() {
-    rain(['🌹', '🌸', '💐', '🌷', '🌺', '💗', '🤎', '💖', '🎉'], 90, 5000);
+  const PINKS = ['#f9a8d4', '#f472b6', '#db2777', '#fbcfe8', '#ffffff', '#d4a24c'];
+  function heartShape() {
+    return typeof confetti === 'function' && confetti.shapeFromPath
+      ? confetti.shapeFromPath({ path: 'M167 72c19,-38 37,-56 75,-56 42,0 76,33 76,75 0,76 -76,151 -151,227 -76,-76 -151,-151 -151,-227 0,-42 33,-75 75,-75 38,0 57,18 76,56z' })
+      : null;
+  }
+
+  function celebrate(ms = 3500) {
+    rain(['🌹', '🌸', '💐', '🌷', '🌺', '💗', '💖', '🎉'], 90, 5000);
     if (typeof confetti !== 'function') return;
-    const colors = ['#e8798f', '#c94f6d', '#c8875a', '#8a5534', '#fbd9df', '#ffffff'];
-    const heart = confetti.shapeFromPath ? confetti.shapeFromPath({ path: 'M167 72c19,-38 37,-56 75,-56 42,0 76,33 76,75 0,76 -76,151 -151,227 -76,-76 -151,-151 -151,-227 0,-42 33,-75 75,-75 38,0 57,18 76,56z' }) : undefined;
-    const end = Date.now() + 3500;
+    const heart = heartShape();
+    const shapes = heart ? [heart, 'circle'] : undefined;
+    const end = Date.now() + ms;
     (function frame() {
-      confetti({ particleCount: 5, angle: 60, spread: 70, origin: { x: 0, y: 0.7 }, colors, shapes: heart ? [heart, 'circle'] : undefined, scalar: 1.4 });
-      confetti({ particleCount: 5, angle: 120, spread: 70, origin: { x: 1, y: 0.7 }, colors, shapes: heart ? [heart, 'circle'] : undefined, scalar: 1.4 });
+      confetti({ particleCount: 5, angle: 60, spread: 70, origin: { x: 0, y: 0.7 }, colors: PINKS, shapes, scalar: 1.4 });
+      confetti({ particleCount: 5, angle: 120, spread: 70, origin: { x: 1, y: 0.7 }, colors: PINKS, shapes, scalar: 1.4 });
       if (Date.now() < end) requestAnimationFrame(frame);
     })();
-    confetti({ particleCount: 160, spread: 120, origin: { y: 0.45 }, colors, scalar: 1.2 });
+    confetti({ particleCount: 160, spread: 120, origin: { y: 0.45 }, colors: PINKS, scalar: 1.2 });
   }
 
-  function showOverlay(html) {
-    overlay.innerHTML = `<div class="card">${html}</div>`;
-    overlay.classList.remove('hidden');
-  }
-  function hideOverlay() { overlay.classList.add('hidden'); overlay.innerHTML = ''; }
-
-  // A "No" button that refuses to be clicked 😜
-  function makeRunaway(btn) {
-    const escape = (e) => {
-      e.preventDefault();
-      const box = btn.parentElement.getBoundingClientRect();
-      const maxX = Math.max(0, box.width - btn.offsetWidth);
-      btn.style.position = 'absolute';
-      btn.style.left = Math.random() * maxX + 'px';
-      btn.style.top = (Math.random() > 0.5 ? -1 : 1) * (20 + Math.random() * 40) + 'px';
-      const lines = ['Nope 😜', 'Try again 🙈', 'Not allowed 🤭', 'Liar 😏', 'Hehe 🤎'];
-      btn.textContent = lines[Math.floor(Math.random() * lines.length)];
-    };
-    btn.addEventListener('mouseenter', escape);
-    btn.addEventListener('touchstart', escape, { passive: false });
-    btn.addEventListener('click', escape);
+  function fireworks(seconds = 12) {
+    if (typeof confetti !== 'function') return;
+    const end = Date.now() + seconds * 1000;
+    const timer = setInterval(() => {
+      if (Date.now() > end) return clearInterval(timer);
+      confetti({
+        particleCount: 70, startVelocity: 32, spread: 360, ticks: 70, gravity: 0.9, scalar: 1.1,
+        origin: { x: 0.15 + Math.random() * 0.7, y: 0.15 + Math.random() * 0.35 }, colors: PINKS,
+      });
+    }, 700);
   }
 
-  // A tiny reply between questions
-  function reaction(emoji, title, text, next, delay = 1700) {
-    render(`
-      <div class="big-emoji">${emoji}</div>
-      <h2>${title}</h2>
-      <p class="sub">${text}</p>
-    `);
-    rain([emoji, '💗', '🤎'], 18, 1200);
-    setTimeout(next, delay);
+  // ---------- clock ----------
+  function clockHTML(negative) {
+    return `
+      <div class="clock">
+        ${negative ? '<span class="sign">−</span>' : ''}
+        <div class="unit"><span id="hh">00</span><small>hours</small></div><span class="sep">:</span>
+        <div class="unit"><span id="mm">00</span><small>min</small></div><span class="sep">:</span>
+        <div class="unit"><span id="ss">00</span><small>sec</small></div>
+      </div>`;
   }
 
-  // ---------- steps ----------
-  function stepWelcome() {
-    render(`
-      <div class="big-emoji">💌</div>
-      <h1>Hey there, beautiful</h1>
-      <p class="sub">Someone who loves you so much made this little surprise. Answer honestly… he is watching 👀🤎</p>
-      <div class="btns"><button class="btn" id="go">Open my surprise 🎁</button></div>
-    `, 0);
-    $('#go').onclick = stepName;
+  function setClock(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const hh = $('#hh');
+    if (!hh) return;
+    hh.textContent = pad(Math.floor(s / 3600));
+    $('#mm').textContent = pad(Math.floor((s % 3600) / 60));
+    $('#ss').textContent = pad(s % 60);
   }
 
-  function stepName() {
-    render(`
-      <div class="big-emoji">🥰</div>
-      <h2>What is the name your love always calls you?</h2>
-      <p class="sub">Only the real one knows it… 🤫</p>
-      <input class="field" id="name" placeholder="Type your name here 💗" autocomplete="off" maxlength="40" />
-      <p class="hint" id="hint"></p>
-      <div class="btns"><button class="btn" id="next">That's me 💁‍♀️</button></div>
-    `, 0);
-    const input = $('#name');
-    input.focus();
-    const tries = ['Hmm… that’s not what he calls you 🤔', 'Nope! Think harder, my love 😜', 'He calls you something sweeter 🍯', 'Last hint: it starts with “S” 🤎'];
-    let n = 0;
-    const submit = () => {
-      if (isSaabira(input.value)) {
-        answers.name = input.value.trim();
-        reaction('😍', 'Saabira! 💖', 'I knew it was you, my queen 👑', stepMiss);
-      } else {
-        $('#hint').textContent = tries[Math.min(n++, tries.length - 1)];
-        shake(input);
-      }
-    };
-    $('#next').onclick = submit;
-    input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+  // ---------- stages ----------
+  function stageAt(t) {
+    if (arrivedAt) return t < GIFT_TIME ? 'anniversary' : 'gifts';
+    if (t < MEETING) return 'meeting';
+    if (t < GRACE_END) return 'grace';
+    return 'late';
   }
 
-  function stepMiss() {
-    render(`
-      <div class="big-emoji">🥺</div>
-      <h2>Do you miss him?</h2>
-      <p class="sub">Careful… one of these buttons is a little shy 🙈</p>
-      <div class="btns">
-        <button class="btn" id="yes">Yes, so much 🥹</button>
-        <button class="btn ghost runaway" id="no">No 🙄</button>
-      </div>
-    `, 1);
-    makeRunaway($('#no'));
-    $('#yes').onclick = () => {
-      answers.missesHim = true;
-      reaction('🥹', 'Awww!', 'He misses you even more — every single second 💞', stepLoveMeter);
-    };
+  // How the clock behaves in each stage: ms to show, and whether it is "minus" time
+  function clockValue(s, t) {
+    if (s === 'meeting') return MEETING - t;
+    if (s === 'grace') return GRACE_END - t;
+    if (s === 'late') return t - GRACE_END;
+    if (s === 'anniversary') return GIFT_TIME - t;
+    return 0;
   }
 
-  function stepLoveMeter() {
-    render(`
-      <div class="big-emoji">💗</div>
-      <h2>How much do you love him?</h2>
-      <div class="meter-val" id="val">50%</div>
-      <input type="range" id="meter" min="0" max="100" value="50" />
-      <div class="meter-msg" id="msg">Hmm… only half? 🤨</div>
-      <div class="btns"><button class="btn" id="next">That's my answer 💘</button></div>
-    `, 2);
-    const meter = $('#meter');
-    const msgs = [
-      [20, 'Excuse me?! 😤'], [40, 'That’s it?? 😒'], [60, 'Hmm… only half? 🤨'],
-      [80, 'Getting warmer 🔥'], [99, 'Sooo close 😍'], [100, 'TO INFINITY! 💖🤎💖'],
-    ];
-    const update = () => {
-      const v = Number(meter.value);
-      $('#val').textContent = v === 100 ? '∞%' : v + '%';
-      $('#msg').textContent = msgs.find(([max]) => v <= max)[1];
-    };
-    meter.oninput = update;
-    update();
-    $('#next').onclick = () => {
-      if (Number(meter.value) < 100) {
-        $('#msg').textContent = 'Wrong answer! Slide it all the way 😤💗';
-        shake(meter);
-        return;
-      }
-      answers.loveLevel = 'infinity';
-      reaction('🥰', 'To infinity and beyond!', 'He loves you more than all the stars in the sky ✨', stepFellFirst);
-    };
-  }
+  const infoCard = () => `
+    <div class="summary">
+      📅 <b>Day:</b> Today, Wednesday 21 October<br/>
+      ⏰ <b>Time:</b> 9:00 AM<br/>
+      📍 <b>Place:</b> ${PLACE}<br/>
+      💑 <b>With:</b> the one who loves you most
+    </div>`;
 
-  function choiceStep({ index, emoji, title, sub, key, options, react }) {
-    render(`
-      <div class="big-emoji">${emoji}</div>
-      <h2>${title}</h2>
-      ${sub ? `<p class="sub">${sub}</p>` : ''}
-      <div class="choices">
-        ${options.map((o, i) => `<button class="choice" data-i="${i}"><span class="e">${o.e}</span>${o.t}</button>`).join('')}
-      </div>
-    `, index);
-    card.querySelectorAll('.choice').forEach((btn) => {
-      btn.onclick = () => {
-        const o = options[Number(btn.dataset.i)];
-        btn.classList.add('picked');
-        answers[key] = o.t;
-        setTimeout(() => react(o), 350);
-      };
-    });
-  }
-
-  function stepFellFirst() {
-    choiceStep({
-      index: 3, emoji: '💞', key: 'fellInLoveFirst',
-      title: 'Who fell in love first?',
-      options: [
-        { e: '🙋‍♀️', t: 'Me' }, { e: '🙋‍♂️', t: 'Him' },
-        { e: '💘', t: 'Both at once' }, { e: '🤭', t: 'Secret' },
-      ],
-      react: (o) => {
-        const r = {
-          Me: ['😏', 'Ooh, you admit it!', 'But he fell harder, trust me 🤎'],
-          Him: ['😌', 'Correct!', 'He fell the moment he saw your smile 💗'],
-          'Both at once': ['💘', 'Destiny!', 'Two hearts, one beat 💓'],
-          Secret: ['🤫', 'Hehe, mysterious!', 'He already knows the answer anyway 😜'],
-        }[o.t];
-        reaction(r[0], r[1], r[2], stepFavorite);
-      },
-    });
-  }
-
-  function stepFavorite() {
-    choiceStep({
-      index: 4, emoji: '😍', key: 'favoriteThing',
-      title: 'What do you love most about him?',
-      options: [
-        { e: '😊', t: 'His smile' }, { e: '🤗', t: 'His hugs' },
-        { e: '😂', t: 'His jokes' }, { e: '💯', t: 'Everything!' },
-      ],
-      react: (o) => reaction('🥹', `${o.t.replace('!', '')}? Aww!`, 'And he loves EVERYTHING about you, from head to toe 🤎', stepForever),
-    });
-  }
-
-  function stepForever() {
-    render(`
-      <div class="big-emoji">💍</div>
-      <h2>Will you be his forever?</h2>
-      <p class="sub">Think carefully… there is only one right answer 😌</p>
-      <div class="btns">
-        <button class="btn" data-a="Yes">Yes 💗</button>
-        <button class="btn brown" data-a="Of course">Of course 🤎</button>
-        <button class="btn" data-a="Forever and always">Forever &amp; always ♾️</button>
-      </div>
-    `, 5);
-    card.querySelectorAll('[data-a]').forEach((b) => {
-      b.onclick = () => {
-        answers.forever = b.dataset.a;
-        celebrate();
-        reaction('💍', 'He’s the luckiest man alive!', 'Now… let’s plan a sweet date together ☕🥐', stepBreakfast, 2300);
-      };
-    });
-  }
-
-  function stepBreakfast() {
-    const min = todayISO();
-    render(`
+  const VIEWS = {
+    meeting: () => `
       <div class="big-emoji">☕</div>
-      <h2>When do you want to have breakfast with him?</h2>
-      <p class="sub">Pick a day and a time for your breakfast date 🥐🍳</p>
-      <div class="row">
-        <div>
-          <label class="lbl" for="date">📅 Day</label>
-          <input class="field" type="date" id="date" min="${min}" />
-        </div>
-        <div>
-          <label class="lbl" for="time">⏰ Time</label>
-          <input class="field" type="time" id="time" value="09:00" />
-        </div>
-      </div>
-      <div class="chips">
-        ${['07:30', '08:00', '09:00', '10:00', '11:00'].map((t) => `<button class="chip" data-t="${t}">${prettyTime(t)}</button>`).join('')}
-      </div>
-      <p class="hint" id="hint"></p>
-      <div class="btns"><button class="btn" id="next">Book my date 💕</button></div>
-    `, 6);
-    if (answers.breakfastDate) $('#date').value = answers.breakfastDate;
-    card.querySelectorAll('.chip').forEach((c) => {
-      c.onclick = () => {
-        $('#time').value = c.dataset.t;
-        card.querySelectorAll('.chip').forEach((x) => x.classList.toggle('picked', x === c));
-      };
-    });
-    $('#next').onclick = () => {
-      const date = $('#date').value;
-      const time = $('#time').value;
-      if (!date) { $('#hint').textContent = 'Pick a day first, my love 📅'; shake($('#date')); return; }
-      if (!time) { $('#hint').textContent = 'And a time please ⏰'; shake($('#time')); return; }
-      if (date < min || date > MAX_DATE) {
-        const tooEarly = date < min;
-        showOverlay(`
-          <div class="cry">😭</div>
-          <div class="tears">💧💧💧</div>
-          <h2>${tooEarly ? 'That day is already gone!' : 'Nooo, that’s too far away!'}</h2>
-          <p class="sub">${tooEarly
-            ? 'We can’t go back in time, silly 🥺'
-            : `He can’t wait that long to see you 💔<br/>Please choose a day before <b>${prettyDate(MAX_DATE)}</b> 🙏`}</p>
-          <div class="btns"><button class="btn" id="again">Okay, I’ll choose again 🥺</button></div>
-        `);
-        overlay.querySelector('#again').onclick = () => { hideOverlay(); $('#date').value = ''; $('#date').focus(); };
-        return;
-      }
-      answers.breakfastDate = date;
-      answers.breakfastTime = time;
-      reaction('🥐', 'It’s a date!', `${prettyDate(date)} at ${prettyTime(time)} 💗<br/>He’s already counting the hours ⏳`, stepPlace, 2200);
-    };
-  }
+      <h1>Today is the day!</h1>
+      <p class="sub">Good morning, ${NAME} 🌸<br/>Your breakfast date with him is <b>today</b>. He can’t wait to see you!</p>
+      <p class="clock-label">Our date starts in</p>
+      ${clockHTML(false)}
+      ${infoCard()}
+      <div class="btns"><button class="btn" id="here">I’m here with him 🥰</button></div>`,
 
-  function stepPlace() {
-    render(`
-      <div class="big-emoji">📍</div>
-      <h2>Where do you plan to meet?</h2>
-      <p class="sub">Anywhere is perfect when you’re there 🤎</p>
-      <input class="field" id="place" placeholder="Type the place 🗺️" maxlength="120" autocomplete="off" />
-      <div class="chips">
-        ${['☕ A cozy café', '🏖️ By the beach', '🏨 Hotel restaurant', '🌳 In the park', '🏠 Surprise me!'].map((p) => `<button class="chip">${p}</button>`).join('')}
-      </div>
-      <p class="hint" id="hint"></p>
-      <div class="btns"><button class="btn" id="next">That’s the spot 💞</button></div>
-    `, 7);
-    const input = $('#place');
-    input.focus();
-    card.querySelectorAll('.chip').forEach((c) => { c.onclick = () => { input.value = c.textContent; }; });
-    const submit = () => {
-      const place = input.value.trim();
-      if (place.length < 2) { $('#hint').textContent = 'Tell him where to find you 🥺'; shake(input); return; }
-      answers.place = place;
-      reaction('🗺️', 'Perfect choice!', 'He’ll be there early, with the biggest smile 😁', stepAnniversary);
-    };
-    $('#next').onclick = submit;
-    input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
-  }
+    grace: () => `
+      <div class="big-emoji">😤</div>
+      <h1>Ehem… you’re late!</h1>
+      <p class="sub">It’s past 9:00 and he’s already sitting there ☕<br/>Okay okay… he gave you <b>1 extra hour</b>. Hurry up, princess! 🏃‍♀️💨</p>
+      <p class="clock-label">Extra time left</p>
+      ${clockHTML(false)}
+      ${infoCard()}
+      <div class="btns"><button class="btn" id="here">I’m finally here 🙈</button></div>`,
 
-  function stepAnniversary() {
-    render(`
-      <div class="big-emoji">🗓️</div>
-      <h2>Do you remember this date?</h2>
-      <div class="date-badge">${ANNIVERSARY}</div>
-      <p class="sub" style="margin-top:14px">It’s the <b>2nd anniversary</b> of our love 💞<br/>Did you remember?</p>
-      <div class="btns">
-        <button class="btn" id="yes">Yes, of course! 💖</button>
-        <button class="btn ghost" id="no">Ehh… I forgot 🙈</button>
-      </div>
-    `, 8);
-    $('#yes').onclick = () => { answers.remembersAnniversary = true; stepCelebration(); };
-    $('#no').onclick = () => {
-      answers.remembersAnniversary = false;
-      showOverlay(`
-        <div class="cry">😤</div>
-        <h2>How could you forget?!</h2>
-        <p class="sub">Two whole years of love, ${esc(answers.name)}! 💔<br/>Okay okay… he forgives you, because he loves you 🤎</p>
-        <div class="btns"><button class="btn" id="ok">Sorry, I remember now 🥺💗</button></div>
-      `);
-      overlay.querySelector('#ok').onclick = () => { hideOverlay(); stepCelebration(); };
-    };
-  }
+    late: () => `
+      <div class="big-emoji">😡</div>
+      <h1>You are sooo late!</h1>
+      <p class="sub">Even the extra hour is gone 💔<br/>The coffee is cold, the croissant is lonely, and he is <b>still</b> waiting for you…</p>
+      <p class="clock-label">You are late by</p>
+      ${clockHTML(true)}
+      ${infoCard()}
+      <div class="btns"><button class="btn" id="here">I’m here, sorry! 🥺</button></div>`,
 
-  function stepCelebration() {
-    setProgress(STEP_ICONS.length);
-    celebrate();
-    render(`
+    anniversary: () => `
+      <div class="big-emoji">💞</div>
+      <h1>Welcome, my love!</h1>
+      <p class="sub">You came${arrivedAt && arrivedAt > MEETING ? ' (a little late 😏)' : ''}… and my whole day became beautiful 🌸</p>
+      <div class="anniv-badge">💗 Happy 2nd Anniversary 💗</div>
+      <p class="anniv-dates">28 · 10 · 2024 &nbsp;→&nbsp; 28 · 10 · 2026</p>
+      <div class="together"><b id="days">0</b> days of us 💕</div>
+      <div class="note" id="note"></div>
+      <p class="clock-label">🎁 A secret surprise unlocks at midnight</p>
+      ${clockHTML(false)}
+      <div class="lock">🎁<span>🔒</span></div>`,
+
+    gifts: () => `
       <div class="big-emoji">🎉</div>
-      <h1>Happy 2nd Anniversary!</h1>
-      <p class="sub">🌹 Two years of laughter, hugs, and love 🌹<br/>Here’s to forever together, my love 💞🤎</p>
-      <div class="big-emoji" style="font-size:3rem">💐🌷🌸🌺🌹</div>
-      <p class="hint" id="status"><span class="spinner">💌</span><br/>Sending your answers to him…</p>
-    `);
-    setTimeout(save, 1800);
+      <h1 class="shimmer">Happy Anniversary, my Princess! 👑</h1>
+      <p class="sub">Congratulations on two beautiful years together 💞<br/>I have a little surprise for you…</p>
+      <button class="gift-box" id="giftBox" aria-label="Open your gift">
+        <img src="assets/gifts/box.webp" alt="A gift box for you" />
+        <span class="tap">Tap to open your gift 🎁</span>
+      </button>
+      <div id="reveal" class="reveal" hidden>
+        <div class="hero"><img src="assets/gifts/set.webp" alt="Princess Reef gift set" /></div>
+        <h2>Princess Reef 👑</h2>
+        <p class="sub">A whole princess set, for my princess 💗</p>
+        <div class="gallery">
+          ${giftItem('perfume.webp', 'Princess Reef Perfume', '100 ml · your new signature scent 🌸')}
+          ${giftItem('glitter.webp', 'Perfume Glitter', '50 ml · so you sparkle even more ✨')}
+          ${giftItem('mini.webp', 'Travel Perfume', '15 ml · so I’m always in your bag 👜')}
+          ${giftItem('notes.jpg', 'How it smells', 'Bergamot, peony, rose, amber &amp; vanilla 🌹')}
+        </div>
+        <p class="love-letter">Every time you wear it, remember: you are loved, today, tomorrow and forever. 🤎</p>
+      </div>`,
+  };
+
+  function giftItem(img, title, text) {
+    return `<figure class="gift-item"><img src="assets/gifts/${img}" alt="${title}" loading="lazy" /><figcaption><b>${title}</b><span>${text}</span></figcaption></figure>`;
   }
 
-  function fetchWithTimeout(url, options = {}, ms = 20000) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), ms);
-    return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+  const NOTES = [
+    'You are my favorite good morning ☀️',
+    'Two years, and I still get butterflies 🦋',
+    'Your smile is my favorite place in the world 😊',
+    'Every day with you feels like a love story 📖💗',
+    'Thank you for choosing me, every single day 🤎',
+    'With you, even breakfast feels like a celebration 🥐☕',
+    'Forever isn’t long enough with you ♾️',
+  ];
+  let noteTimer;
+
+  function enterStage(s, prev) {
+    document.body.className = 'stage-' + s;
+    render(VIEWS[s]());
+    clearInterval(noteTimer);
+
+    const here = $('#here');
+    if (here) here.onclick = askArrived;
+
+    if (s === 'anniversary') {
+      $('#days').textContent = Math.floor((now() - LOVE_START) / 86400000);
+      let i = 0;
+      const note = $('#note');
+      const showNote = () => {
+        note.classList.remove('show');
+        setTimeout(() => { note.textContent = NOTES[i++ % NOTES.length]; note.classList.add('show'); }, 350);
+      };
+      showNote();
+      noteTimer = setInterval(showNote, 4500);
+      celebrate(prev ? 3500 : 1500);
+    }
+
+    if (s === 'gifts') {
+      celebrate(4000);
+      fireworks(prev ? 15 : 8);
+      $('#giftBox').onclick = openGift;
+      if (isPreview && params.get('open')) setTimeout(openGift, 1500);
+    }
+
+    if (s === 'grace' && prev === 'meeting') rain(['⏰', '😤', '☕'], 30, 2000);
+    if (s === 'late' && prev === 'grace') rain(['💔', '😡', '⏰'], 30, 2000);
   }
 
-  // Try each backend in turn; a blocked or broken one falls through to the next
-  async function postAnswer() {
-    let lastError = new Error('No server available');
-    for (const base of API_URLS) {
-      try {
-        const res = await fetchWithTimeout(`${base}/api/answer`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(answers),
-        });
-        if (res.ok) return;
-        const data = await res.json().catch(() => ({}));
-        lastError = new Error(data.error || `Server error ${res.status}`);
-        if (res.status === 400) throw lastError; // bad data: another server won't help
-      } catch (err) {
-        if (err === lastError) throw err;
-        lastError = err.name === 'AbortError' ? new Error('Server took too long') : err;
+  function openGift() {
+    const box = $('#giftBox');
+    box.classList.add('open');
+    celebrate(4000);
+    fireworks(6);
+    setTimeout(() => {
+      box.remove();
+      const reveal = $('#reveal');
+      reveal.hidden = false;
+      reveal.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 900);
+  }
+
+  function askArrived() {
+    showOverlay(`
+      <div class="big-emoji">👀</div>
+      <h2>Are you with him right now?</h2>
+      <p class="sub">No cheating, ${NAME}… he can see you 😏</p>
+      <div class="btns">
+        <button class="btn" id="yes">Yes, I’m here! 🥰</button>
+        <button class="btn ghost" id="no">Not yet 🙈</button>
+      </div>`);
+    overlay.querySelector('#no').onclick = hideOverlay;
+    overlay.querySelector('#yes').onclick = () => { hideOverlay(); markArrived(); };
+  }
+
+  function markArrived() {
+    arrivedAt = now();
+    tick();
+    if (isPreview) return;
+    try { localStorage.setItem(ARRIVED_KEY, arrivedAt.toISOString()); } catch {}
+    const send = (tries) => api('/api/arrived', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: NAME }),
+    }).catch(() => { if (tries > 1) setTimeout(() => send(tries - 1), 30000); });
+    send(10);
+  }
+
+  // ---------- main loop ----------
+  function tick() {
+    const t = now();
+    const s = stageAt(t);
+    if (s !== stage) {
+      const prev = stage;
+      stage = s;
+      enterStage(s, prev);
+    }
+    const ms = clockValue(s, t);
+    setClock(ms);
+    if (s !== 'gifts') {
+      const sec = Math.max(0, Math.floor(ms / 1000));
+      document.title = `${s === 'late' ? '−' : ''}${pad(Math.floor(sec / 3600))}:${pad(Math.floor((sec % 3600) / 60))}:${pad(sec % 60)} · For You 💌`;
+    } else {
+      document.title = 'Happy Anniversary 👑💗';
+    }
+  }
+
+  // Preview bar so he can see every page before the real time comes
+  if (isPreview) {
+    const bar = document.getElementById('preview-bar');
+    const base = location.pathname;
+    bar.innerHTML = '👀 Preview: ' + Object.keys(PREVIEW_TIMES)
+      .map((p) => `<a href="${base}?preview=${p}" class="${p === preview ? 'on' : ''}">${p}</a>`).join('') +
+      `<a href="${base}">real</a>`;
+    bar.hidden = false;
+  } else if (!arrivedAt) {
+    // She may have tapped "I'm here" on another device
+    api('/api/arrived').then((d) => {
+      if (d.arrived && !arrivedAt) {
+        arrivedAt = new Date(d.arrivedAt);
+        try { localStorage.setItem(ARRIVED_KEY, arrivedAt.toISOString()); } catch {}
+        tick();
       }
-    }
-    throw lastError;
+    }).catch(() => {});
   }
 
-  async function save() {
-    const status = $('#status');
-    try {
-      await postAnswer();
-      stepDone(answers);
-    } catch (err) {
-      status.innerHTML = `Oops, the love letter got lost 🥺<br/><small>${esc(err.message)}</small>`;
-      const btns = document.createElement('div');
-      btns.className = 'btns';
-      btns.innerHTML = '<button class="btn" id="retry">Send again 💌</button>';
-      card.appendChild(btns);
-      $('#retry').onclick = () => { btns.remove(); status.innerHTML = '<span class="spinner">💌</span><br/>Sending again…'; save(); };
-    }
-  }
+  // Wake the backends early
+  if (!isPreview) API_URLS.forEach((base) => fetch(`${base}/api/health`).catch(() => {}));
 
-  function stepDone(a) {
-    setProgress(STEP_ICONS.length);
-    render(`
-      <div class="big-emoji">💌</div>
-      <h1>Sent with love!</h1>
-      <p class="sub">He got your answers, ${esc(a.name || 'my love')} 🤎</p>
-      ${a.breakfastDate ? `
-      <div class="summary">
-        📅 <b>Day:</b> ${prettyDate(a.breakfastDate)}<br/>
-        ⏰ <b>Time:</b> ${prettyTime(a.breakfastTime)}<br/>
-        📍 <b>Place:</b> ${esc(a.place)}<br/>
-        💞 <b>Anniversary:</b> ${ANNIVERSARY}
-      </div>` : ''}
-      <p class="love-letter">See you soon, my love… ☕🥐💗</p>
-    `);
-  }
-
-  // ---------- start ----------
-  // Wake the backend early so saving at the end is fast
-  API_URLS.forEach((base) => fetch(`${base}/api/health`).catch(() => {}));
-  stepWelcome();
+  tick();
+  setInterval(tick, 250);
 })();
