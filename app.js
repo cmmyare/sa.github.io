@@ -6,7 +6,7 @@
   const PLACE = '☕ A cozy café';
   const MEETING = new Date(2026, 9, 21, 9, 0, 0); // Wed 21 Oct 2026, 9:00 AM
   const GRACE_END = new Date(MEETING.getTime() + 60 * 60 * 1000); // +1 extra hour
-  const GIFT_TIME = new Date(2026, 9, 22, 0, 0, 0); // midnight after the date
+  const GIFT_TIME = new Date(2026, 9, 27, 23, 0, 0); // Tue 27 Oct 2026, 11:00 PM — anniversary eve
   const LOVE_START = new Date(2024, 9, 28); // 28/10/2024
   const ARRIVED_KEY = 'meetSab.arrivedAt';
 
@@ -15,14 +15,21 @@
 
   // ---------- preview mode (for him only): ?preview=meeting|grace|late|anniversary|gifts or ?at=HH:MM ----------
   const params = new URLSearchParams(location.search);
-  const PREVIEW_TIMES = { meeting: '07:45', grace: '09:20', late: '10:35', anniversary: '21:30', gifts: '24:00:03' };
+  // [day, time] each preview pretends it is; ?date=2026-10-27&at=22:59:40 picks any moment
+  const PREVIEW_TIMES = {
+    meeting: ['2026-10-21', '07:45'], grace: ['2026-10-21', '09:20'], late: ['2026-10-21', '10:35'],
+    anniversary: ['2026-10-21', '21:30'], gifts: ['2026-10-27', '23:00:03'],
+  };
   const preview = params.get('preview');
-  const atParam = params.get('at') || PREVIEW_TIMES[preview];
+  const [prevDay, prevAt] = PREVIEW_TIMES[preview] || [];
+  const atParam = params.get('at') || prevAt;
+  const dayParam = params.get('date') || prevDay || '2026-10-21';
   const isPreview = !!atParam;
   let offset = 0;
   if (atParam) {
+    const [y, mo, d] = dayParam.split('-').map(Number);
     const [h, m = 0, s = 0] = atParam.split(':').map(Number);
-    offset = new Date(2026, 9, 21).getTime() + ((h * 60 + m) * 60 + s) * 1000 - Date.now();
+    offset = new Date(y, mo - 1, d, h, m, s).getTime() - Date.now();
   }
   const now = () => new Date(Date.now() + offset);
 
@@ -145,6 +152,7 @@
     return `
       <div class="clock">
         ${negative ? '<span class="sign">−</span>' : ''}
+        <div class="unit" id="dd-unit" hidden><span id="dd">0</span><small>days</small></div><span class="sep" id="dd-sep" hidden>:</span>
         <div class="unit"><span id="hh">00</span><small>hours</small></div><span class="sep">:</span>
         <div class="unit"><span id="mm">00</span><small>min</small></div><span class="sep">:</span>
         <div class="unit"><span id="ss">00</span><small>sec</small></div>
@@ -155,7 +163,10 @@
     const s = Math.max(0, Math.floor(ms / 1000));
     const hh = $('#hh');
     if (!hh) return;
-    hh.textContent = pad(Math.floor(s / 3600));
+    const days = Math.floor(s / 86400);
+    $('#dd-unit').hidden = $('#dd-sep').hidden = days === 0;
+    $('#dd').textContent = days;
+    hh.textContent = pad(Math.floor((s % 86400) / 3600));
     $('#mm').textContent = pad(Math.floor((s % 3600) / 60));
     $('#ss').textContent = pad(s % 60);
   }
@@ -221,7 +232,7 @@
       <p class="anniv-dates">28 · 10 · 2024 &nbsp;→&nbsp; 28 · 10 · 2026</p>
       <div class="together"><b id="days">0</b> days of us 💕</div>
       <div class="note" id="note"></div>
-      <p class="clock-label">🎁 A secret surprise unlocks at midnight</p>
+      <p class="clock-label">🎁 A secret surprise unlocks on 27 October at 11:00 PM</p>
       ${clockHTML(false)}
       <div class="lock">🎁<span>🔒</span></div>`,
 
@@ -346,7 +357,8 @@
     setClock(ms);
     if (s !== 'gifts') {
       const sec = Math.max(0, Math.floor(ms / 1000));
-      document.title = `${s === 'late' ? '−' : ''}${pad(Math.floor(sec / 3600))}:${pad(Math.floor((sec % 3600) / 60))}:${pad(sec % 60)} · For You 💌`;
+      const d = Math.floor(sec / 86400);
+      document.title = `${s === 'late' ? '−' : ''}${d ? d + 'd ' : ''}${pad(Math.floor((sec % 86400) / 3600))}:${pad(Math.floor((sec % 3600) / 60))}:${pad(sec % 60)} · For You 💌`;
     } else {
       document.title = 'Happy Anniversary 👑💗';
     }

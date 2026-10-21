@@ -323,3 +323,15 @@ body.stage-anniversary, body.stage-gifts {
   .unit span { font-size: 2.1rem; }
   .anniv-badge { font-size: 1.45rem; padding: 8px 14px; }
 }
+
+/* 4-box clock (days shown): keep it fitting on small phones */
+.unit[hidden], .sep[hidden] { display: none; }
+.clock:has(#dd-unit:not([hidden])) { gap: 4px; }
+.clock:has(#dd-unit:not([hidden])) .unit { min-width: 64px; }
+.clock:has(#dd-unit:not([hidden])) .unit span { font-size: 2.1rem; }
+@media (max-width: 420px) {
+  .clock:has(#dd-unit:not([hidden])) .unit { min-width: 54px; padding: 9px 3px 6px; }
+  .clock:has(#dd-unit:not([hidden])) .unit span { font-size: 1.75rem; }
+  .clock:has(#dd-unit:not([hidden])) .unit small { font-size: .6rem; letter-spacing: .5px; }
+  .clock:has(#dd-unit:not([hidden])) .sep { font-size: 1.6rem; }
+}
